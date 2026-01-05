@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Suspect Online (Firebase)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e7ecff; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 14px; }
+    .card { background:#121b2f; border:1px solid #223055; border-radius:14px; padding:14px; margin: 10px 0; }
+    h1 { font-size: 20px; margin: 6px 0 10px; }
+    h2 { font-size: 16px; margin: 0 0 10px; opacity:.95;}
+    input, button, select { font-size: 16px; padding: 10px 12px; border-radius: 12px; border:1px solid #2a3c67; background:#0c1530; color:#e7ecff; }
+    button { background:#2a55ff; border:none; cursor:pointer; }
+    button.secondary { background:#223055; }
+    button.danger { background:#ff3b4d; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .row { display:flex; gap:10px; flex-wrap: wrap; }
+    .row > * { flex:1; min-width: 160px; }
+    .pill { display:inline-block; padding: 6px 10px; border-radius: 999px; background:#0c1530; border:1px solid #2a3c67; margin: 4px 6px 0 0; font-size: 13px; }
+    .muted { opacity:.75; }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; white-space: pre-wrap; background:#0c1530; border:1px solid #2a3c67; border-radius:12px; padding:10px; max-height: 260px; overflow:auto;}
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width:720px){ .grid2 { grid-template-columns: 1fr; } }
+    .tiny { font-size: 12px; opacity:.8; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🕵️ Suspect Online</h1>
+      <div class="muted">Clue Suspect simplificado • Sala por código • Firebase Realtime</div>
+    </div>
+
+    <div class="card" id="authCard">
+      <h2>1) Entrar</h2>
+      <div class="row">
+        <input id="playerName" placeholder="Seu nome (ex: Lucas)" />
+        <button id="btnAnon">Entrar (anônimo)</button>
+      </div>
+      <div class="tiny" id="uidLine"></div>
+    </div>
+
+    <div class="card" id="roomCard" style="display:none">
+      <h2>2) Sala</h2>
+      <div class="row">
+        <input id="roomCode" placeholder="Código da sala (ex: AB12CD)" />
+        <button id="btnCreate">Criar sala</button>
+        <button id="btnJoin" class="secondary">Entrar na sala</button>
+      </div>
+      <div class="tiny muted">Dica: o host cria e compartilha o código com os amigos.</div>
+      <div class="tiny" id="roomStatus"></div>
+    </div>
+
+    <div class="card" id="gameCard" style="display:none">
+      <h2>3) Jogo</h2>
+
+      <div class="grid2">
+        <div class="card" style="margin:0">
+          <div><b>Sala:</b> <span id="roomLabel"></span></div>
+          <div><b>Você:</b> <span id="meLabel"></span> <span class="pill" id="hostPill" style="display:none">HOST</span></div>
+          <div><b>Status:</b> <span id="phaseLabel" class="pill"></span></div>
+          <div style="margin-top:10px" id="playersBox"></div>
+        </div>
+
+        <div class="card" style="margin:0">
+          <div><b>Suas cartas</b> <span class="tiny muted">(ninguém mais vê)</span></div>
+          <div id="handBox" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Ações</h2>
+
+        <div class="row">
+          <button id="btnStart" class="secondary">Iniciar partida (host)</button>
+          <button id="btnDraw">Puxar pista</button>
+          <button id="btnReset" class="danger">Encerrar sala</button>
+        </div>
+
+        <div class="grid2" style="margin-top:10px">
+          <div class="card" style="margin:0">
+            <h2>Palpite</h2>
+            <select id="guessSus"></select>
+            <select id="guessObj" style="margin-top:8px"></select>
+            <select id="guessLoc" style="margin-top:8px"></select>
+            <button id="btnGuess" style="margin-top:10px">Fazer palpite</button>
+            <div class="tiny muted" style="margin-top:6px">O palpite entra no log e todos podem responder “tenho/não tenho” pelo chat (voz/WhatsApp) — ou a gente automatiza isso depois.</div>
+          </div>
+
+          <div class="card" style="margin:0">
+            <h2>Acusação final</h2>
+            <select id="accSus"></select>
+            <select id="accObj" style="margin-top:8px"></select>
+            <select id="accLoc" style="margin-top:8px"></select>
+            <button id="btnAccuse" class="danger" style="margin-top:10px">Acusar</button>
+            <div class="tiny muted" style="margin-top:6px">Se acertar, vence. Se errar, você fica “fora” (marcado no jogo).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Pistas públicas</h2>
+        <div id="publicClues"></div>
+      </div>
+
+      <div class="card">
+        <h2>Log da sala</h2>
+        <div class="log" id="logBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase (CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import {
+      getDatabase, ref, set, get, update, push, onValue, onDisconnect, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+
+    // ------------- CONFIG: TROQUE AQUI -------------
+    const firebaseConfig = {
+      apiKey: "SUA_API_KEY",
+      authDomain: "SEU_PROJECT.firebaseapp.com",
+      databaseURL: "https://SEU_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "SEU_PROJECT",
+      storageBucket: "SEU_PROJECT.appspot.com",
+      messagingSenderId: "SEU_SENDER_ID",
+      appId: "SEU_APP_ID"
+    };
+    // -----------------------------------------------
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // ----- DADOS DO JOGO (você pode trocar/expandir) -----
+    const SUSPECTS = ["Alice", "Bruno", "Carla", "Diego", "Elisa", "Fábio"];
+    const OBJECTS  = ["Chave", "Livro", "Copo", "Corda", "Tesoura", "Lanterna"];
+    const LOCATIONS= ["Cozinha", "Sala", "Quarto", "Jardim", "Garagem", "Escritório"];
+
+    const CLUES = [
+      { type:"sus", text:"O suspeito NÃO usa óculos.", excludes:["Carla"] },
+      { type:"sus", text:"O culpado é alguém cujo nome começa com vogal.", includes:["Alice","Elisa"] },
+      { type:"obj", text:"O objeto NÃO é cortante.", excludes:["Tesoura"] },
+      { type:"obj", text:"O objeto é algo que dá pra segurar com uma mão.", includes:["Chave","Livro","Copo","Lanterna"] },
+      { type:"loc", text:"Não foi em um lugar de descanso.", excludes:["Quarto"] },
+      { type:"loc", text:"Foi em um ambiente com “mesa” por perto.", includes:["Cozinha","Escritório"] },
+      { type:"mix", text:"Não foi no Jardim e não foi a Lanterna.", excludesLoc:["Jardim"], excludesObj:["Lanterna"] }
+    ];
+
+    // ---------- helpers ----------
+    const $ = (id) => document.getElementById(id);
+    const safeUpper = (s) => (s||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10);
+
+    function shuffle(arr){
+      const a=[...arr];
+      for(let i=a.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [a[i],a[j]]=[a[j],a[i]];
+      }
+      return a;
+    }
+
+    function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+    // ---------- state ----------
+    let uid = null;
+    let meName = "";
+    let room = null;
+    let isHost = false;
+    let unsubRoom = null;
+
+    // UI init select options
+    function fillSelect(sel, arr){
+      sel.innerHTML = arr.map(x => `<option value="${x}">${x}</option>`).join("");
+    }
+    fillSelect($("guessSus"), SUSPECTS);
+    fillSelect($("guessObj"), OBJECTS);
+    fillSelect($("guessLoc"), LOCATIONS);
+    fillSelect($("accSus"), SUSPECTS);
+    fillSelect($("accObj"), OBJECTS);
+    fillSelect($("accLoc"), LOCATIONS);
+
+    // ---------- auth ----------
+    $("btnAnon").onclick = async () => {
+      meName = $("playerName").value.trim();
+      if(!meName) return alert("Coloque seu nome 🙂");
+      await signInAnonymously(auth);
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      if(!user) return;
+      uid = user.uid;
+      $("uidLine").textContent = `Conectado ✅ (uid: ${uid.slice(0,8)}…)`;
+      $("roomCard").style.display = "";
+      $("btnAnon").disabled = true;
+      $("playerName").disabled = true;
+    });
+
+    // ---------- room ----------
+    $("btnCreate").onclick = async () => {
+      const code = safeUpper($("roomCode").value) || randomRoomCode();
+      $("roomCode").value = code;
+      await joinOrCreate(code, true);
+    };
+
+    $("btnJoin").onclick = async () => {
+      const code = safeUpper($("roomCode").value);
+      if(!code) return alert("Digite o código da sala.");
+      await joinOrCreate(code, false);
+    };
+
+    function randomRoomCode(){
+      const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let out="";
+      for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+      return out;
+    }
+
+    async function joinOrCreate(code, createIfMissing){
+      room = code;
+      const roomRef = ref(db, `rooms/${room}`);
+      const snap = await get(roomRef);
+
+      if(!snap.exists()){
+        if(!createIfMissing) return alert("Sala não existe. Peça o código certo ou crie uma nova.");
+        // create room
+        const hostId = uid;
+        await set(roomRef, {
+          createdAt: serverTimestamp(),
+          hostId,
+          phase: "lobby", // lobby | playing | finished
+          ended: false
+        });
+        await pushLog(room, `Sala criada por ${meName}. Código: ${room}`);
+      }
+
+      // add me to players
+      const playerRef = ref(db, `rooms/${room}/players/${uid}`);
+      await set(playerRef, {
+        name: meName,
+        joinedAt: serverTimestamp(),
+        alive: true
+      });
+      onDisconnect(playerRef).remove();
+
+      // watch room
+      if(unsubRoom) unsubRoom();
+      $("roomStatus").textContent = `Entrou na sala ${room}.`;
+      $("roomLabel").textContent = room;
+      $("meLabel").textContent = meName;
+      $("gameCard").style.display = "";
+      $("roomCard").style.display = "none";
+      $("authCard").style.display = "none";
+
+      const roomLiveRef = ref(db, `rooms/${room}`);
+      unsubRoom = onValue(roomLiveRef, (s) => {
+        const data = s.val();
+        if(!data) return;
+        isHost = data.hostId === uid;
+        $("hostPill").style.display = isHost ? "inline-block" : "none";
+        $("phaseLabel").textContent = data.phase || "lobby";
+
+        // buttons enable/disable
+        $("btnStart").disabled = !isHost || data.phase !== "lobby";
+        $("btnReset").disabled = !isHost;
+
+        // render players
+        renderPlayers(data.players || {});
+
+        // render my hand
+        const myHand = (data.hands && data.hands[uid]) ? data.hands[uid] : [];
+        renderHand(myHand);
+
+        // public clues
+        renderPublicClues(data.publicClues || []);
+
+        // log
+        renderLog(data.log || {});
+
+        // lock actions if finished or eliminated
+        const meAlive = data.players?.[uid]?.alive !== false;
+        $("btnDraw").disabled = data.phase !== "playing" || !meAlive;
+        $("btnGuess").disabled = data.phase !== "playing" || !meAlive;
+        $("btnAccuse").disabled = data.phase !== "playing" || !meAlive;
+      });
+    }
+
+    function renderPlayers(players){
+      const entries = Object.entries(players);
+      if(entries.length === 0){ $("playersBox").innerHTML = `<span class="muted">Sem jogadores.</span>`; return; }
+      $("playersBox").innerHTML = entries.map(([id,p]) => {
+        const hostMark = (id === (players.__hostId)) ? " (host)" : "";
+        const alive = p.alive === false ? "❌ fora" : "✅";
+        const you = id === uid ? " • você" : "";
+        return `<span class="pill">${alive} ${escapeHtml(p.name||"Jogador")}${you}</span>`;
+      }).join(" ");
+    }
+
+    function renderHand(hand){
+      if(!hand || hand.length===0){
+        $("handBox").innerHTML = `<div class="muted">Ainda sem cartas (o host precisa iniciar).</div>`;
+        return;
+      }
+      $("handBox").innerHTML = hand.map(c => `<span class="pill">${escapeHtml(c)}</span>`).join(" ");
+    }
+
+    function renderPublicClues(clues){
+      if(!clues || clues.length===0){
+        $("publicClues").innerHTML = `<div class="muted">Nenhuma pista ainda.</div>`;
+        return;
+      }
+      $("publicClues").innerHTML = clues.map(c =>
+        `<div class="pill">🧩 ${escapeHtml(c.text)} <span class="tiny muted">(${new Date(c.at||Date.now()).toLocaleTimeString()})</span></div>`
+      ).join("");
+    }
+
+    function renderLog(logObj){
+      const items = Object.values(logObj || {}).sort((a,b)=>(a.at||0)-(b.at||0));
+      $("logBox").textContent = items.map(i => `[${new Date(i.at||Date.now()).toLocaleTimeString()}] ${i.text}`).join("\n");
+      $("logBox").scrollTop = $("logBox").scrollHeight;
+    }
+
+    function escapeHtml(s){
+      return (s||"").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+    }
+
+    async function pushLog(roomCode, text){
+      const logRef = ref(db, `rooms/${roomCode}/log`);
+      await push(logRef, { text, at: Date.now() });
+    }
+
+    // ---------- game actions ----------
+    $("btnStart").onclick = async () => {
+      if(!room || !isHost) return;
+      const roomRef = ref(db, `rooms/${room}`);
+      const snap = await get(roomRef);
+      const data = snap.val();
+      if(!data || data.phase !== "lobby") return;
+
+      const players = data.players ? Object.keys(data.players) : [];
+      if(players.length < 2) return alert("Entre com pelo menos 2 jogadores para ficar legal 🙂");
+
+      // build deck: all cards except mystery
+      const mystery = {
+        suspect: choice(SUSPECTS),
+        object: choice(OBJECTS),
+        location: choice(LOCATIONS)
+      };
+      const allCards = [
+        ...SUSPECTS.map(x=>`Suspeito: ${x}`),
+        ...OBJECTS.map(x=>`Objeto: ${x}`),
+        ...LOCATIONS.map(x=>`Lugar: ${x}`)
+      ];
+
+      const mysteryCards = new Set([
+        `Suspeito: ${mystery.suspect}`,
+        `Objeto: ${mystery.object}`,
+        `Lugar: ${mystery.location}`
+      ]);
+
+      const deck = shuffle(allCards.filter(c => !mysteryCards.has(c)));
+
+      // deal
+      const hands = {};
+      players.forEach(pid => hands[pid] = []);
+      let idx=0;
+      for(const card of deck){
+        const pid = players[idx % players.length];
+        hands[pid].push(card);
+        idx++;
+      }
+
+      // shuffle clues too
+      const clueDeck = shuffle(CLUES).map(c => ({...c}));
+
+      await update(roomRef, {
+        phase: "playing",
+        mystery,        // ⚠️ em app “sério”, isso deveria ficar oculto (Cloud Function). Aqui é simples.
+        hands,
+        clueDeck,
+        clueIndex: 0,
+        publicClues: [],
+        ended: false
+      });
+
+      await pushLog(room, `🎬 Partida iniciada! (Host: ${meName})`);
+      await pushLog(room, `Objetivo: descobrir suspeito + objeto + lugar.`);
+    };
+
+    $("btnDraw").onclick = async () => {
+      if(!room) return;
+      const roomRef = ref(db, `rooms/${room}`);
+      const snap = await get(roomRef);
+      const data = snap.val();
+      if(!data || data.phase !== "playing") return;
+
+      const clueIndex = data.clueIndex || 0;
+      const deck = data.clueDeck || [];
+      if(clueIndex >= deck.length) return alert("Acabaram as pistas!");
+
+      const clue = deck[clueIndex];
+      const newClues = [...(data.publicClues || []), { text: clue.text, at: Date.now() }];
+
+      await update(roomRef, { clueIndex: clueIndex + 1, publicClues: newClues });
+      await pushLog(room, `🧩 ${meName} puxou uma pista: ${clue.text}`);
+    };
+
+    $("btnGuess").onclick = async () => {
+      if(!room) return;
+      const s = $("guessSus").value;
+      const o = $("guessObj").value;
+      const l = $("guessLoc").value;
+      await pushLog(room, `❓ Palpite de ${meName}: ${s} + ${o} + ${l}`);
+    };
+
+    $("btnAccuse").onclick = async () => {
+      if(!room) return;
+      const roomRef = ref(db, `rooms/${room}`);
+      const snap = await get(roomRef);
+      const data = snap.val();
+      if(!data || data.phase !== "playing") return;
+
+      const s = $("accSus").value;
+      const o = $("accObj").value;
+      const l = $("accLoc").value;
+
+      const ok =
+        data.mystery?.suspect === s &&
+        data.mystery?.object === o &&
+        data.mystery?.location === l;
+
+      if(ok){
+        await pushLog(room, `🏆 ${meName} ACUSOU e ACERTOU! Era ${s} com ${o} em ${l}.`);
+        await update(roomRef, { phase:"finished", ended:true });
+        alert(`Você venceu! Era ${s} com ${o} em ${l}.`);
+      } else {
+        await pushLog(room, `💥 ${meName} acusou e ERROU: ${s} + ${o} + ${l}. (Ficou fora)`);
+        // mark me as out
+        await update(ref(db, `rooms/${room}/players/${uid}`), { alive:false });
+        alert("Errou! Você ficou fora da disputa (mas pode continuar assistindo).");
+      }
+    };
+
+    $("btnReset").onclick = async () => {
+      if(!room || !isHost) return;
+      const ok = confirm("Encerrar sala e limpar jogo? (todo mundo vai sair)");
+      if(!ok) return;
+      await set(ref(db, `rooms/${room}`), null);
+      location.reload();
+    };
+  </script>
+</body>
+</html>
