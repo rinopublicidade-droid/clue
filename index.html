@@ -60,11 +60,13 @@
     .label { font-size: 15px; display:flex; gap:8px; align-items:center; }
     .emoji { width: 22px; text-align:center; }
 
+    /* crossed (eliminado) */
     .checkItem.crossed { opacity: .55; }
     .checkItem.crossed .label { text-decoration: line-through; text-decoration-thickness: 2px; }
     .checkItem.crossed .box { background:#2a55ff; border-color:#2a55ff; }
     .checkItem.crossed .box::after { content:"✓"; color:white; font-weight:700; }
 
+    /* possible (marcado como possível) */
     .checkItem.possible { border-color: #ffd166; box-shadow: 0 0 0 2px rgba(255,209,102,.18) inset; }
     .checkItem.possible .box { border-color:#ffd166; }
     .possibleTag { margin-left:auto; font-size:12px; opacity:.9; padding:4px 8px; border-radius:999px; border:1px solid #ffd166; color:#ffd166; }
@@ -81,6 +83,45 @@
     .barBg{ height:10px; border-radius:999px; background:#142248; border:1px solid #2a3c67; overflow:hidden; }
     .barFill{ height:100%; width:0%; background:#2a55ff; }
     .pct{ width:56px; text-align:right; font-variant-numeric: tabular-nums; }
+
+    /* ===== Modal fullscreen para revelar 1 carta ===== */
+    .modal { position: fixed; inset: 0; display: none; z-index: 9999; }
+    .modal.open { display: block; }
+    .modalBackdrop { position: absolute; inset:0; background: rgba(0,0,0,.65); }
+    .modalSheet{
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(560px, calc(100vw - 24px));
+      background:#0c1530; border:1px solid #2a3c67; border-radius: 16px;
+      box-shadow: 0 10px 50px rgba(0,0,0,.45); overflow: hidden;
+    }
+    .modalHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 12px 14px; background:#121b2f; border-bottom:1px solid #223055;
+    }
+    .modalTitle{ font-weight: 700; }
+    .modalClose{
+      width: 42px; height: 42px; border-radius: 12px;
+      border:1px solid #2a3c67; background:#0c1530; color:#e7ecff;
+      cursor:pointer;
+    }
+    .modalBody{ padding: 16px; }
+
+    .bigCard{
+      width: 100%; min-height: 160px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      font-size: 28px; font-weight: 800; letter-spacing: .2px;
+      padding: 20px; border-radius: 16px;
+      background: radial-gradient(1200px 200px at 50% 0%, rgba(42,85,255,.35), transparent 60%), #0b1430;
+      border: 1px solid #2a3c67; text-align:center;
+    }
+    .bigCard small{
+      display:block; font-size: 14px; font-weight: 600; opacity:.8; margin-top: 10px;
+    }
+
+    /* Cartas clicáveis na mão */
+    .handBtn{ border:none; background:transparent; padding:0; margin:0; }
+    .handBtn .pill{ cursor:pointer; }
   </style>
 </head>
 <body>
@@ -88,7 +129,7 @@
     <div class="card">
       <h1>🕵️ Suspect Online</h1>
       <div class="muted">Clue Suspect simplificado • Sala por código • Firebase Firestore</div>
-      <div class="tiny muted">Checklist com emojis + modo “POSSÍVEL” + painel de probabilidades (ajudante).</div>
+      <div class="tiny muted">✅ Checklist + POSSÍVEL • ✅ Modal “mostrar 1 carta” • ✅ Probabilidades opcionais (host antes de iniciar)</div>
     </div>
 
     <div class="card" id="authCard">
@@ -124,13 +165,13 @@
         </div>
 
         <div class="card" style="margin:0">
-          <div><b>Suas cartas</b> <span class="tiny muted">(ninguém mais vê)</span></div>
+          <div><b>Suas cartas</b> <span class="tiny muted">(toque em 1 carta para abrir em tela cheia)</span></div>
           <div id="handBox" style="margin-top:8px"></div>
         </div>
       </div>
 
-      <!-- PROBABILIDADES -->
-      <div class="card">
+      <!-- PROBABILIDADES (opcional pelo host) -->
+      <div class="card" id="probCard" style="display:none">
         <h2>Probabilidades agora <span class="tiny muted">(ajudante — baseado em pistas + suas eliminações)</span></h2>
         <div class="probGrid">
           <div class="card" style="margin:0">
@@ -147,7 +188,7 @@
           </div>
         </div>
         <div class="tiny muted" style="margin-top:8px">
-          Dica: itens riscados/na sua mão viram 0%. Itens marcados como “POSSÍVEL” ganham um empurrão (não é certeza).
+          Itens riscados/na sua mão viram 0%. Itens marcados como “POSSÍVEL” ganham um empurrão (não é certeza).
         </div>
       </div>
 
@@ -191,6 +232,7 @@
         <h2>Ações</h2>
         <div class="row">
           <button id="btnStart" class="secondary">Iniciar partida (host)</button>
+          <button id="btnToggleProb" class="secondary" style="display:none">Probabilidades: DESLIGADO</button>
           <button id="btnDraw">Puxar pista</button>
           <button id="btnReset" class="danger">Encerrar sala</button>
         </div>
@@ -202,6 +244,9 @@
             <select id="guessObj" style="margin-top:8px"></select>
             <select id="guessLoc" style="margin-top:8px"></select>
             <button id="btnGuess" style="margin-top:10px">Fazer palpite</button>
+            <div class="tiny muted" style="margin-top:6px">
+              (Versão simples) O palpite vai pro log. A “mostrada de carta” é manual via popup da mão.
+            </div>
           </div>
 
           <div class="card" style="margin:0">
@@ -227,6 +272,23 @@
     </div>
   </div>
 
+  <!-- MODAL: mostrar 1 carta em tela cheia -->
+  <div id="cardModal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" id="cardModalBackdrop"></div>
+    <div class="modalSheet" role="dialog" aria-modal="true" aria-label="Carta revelada">
+      <div class="modalHeader">
+        <div class="modalTitle">Mostrando 1 carta</div>
+        <button id="btnCloseCardModal" class="modalClose" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modalBody">
+        <div id="modalCardBig" class="bigCard"></div>
+        <div class="tiny muted" style="margin-top:10px; text-align:center;">
+          Dica: vire o celular e mostre só essa carta ao jogador ao lado.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
@@ -244,6 +306,7 @@
       messagingSenderId: "870296918956",
       appId: "1:870296918956:web:f8f9d95b44f8689af27809"
     };
+    // ============================================================
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -275,7 +338,7 @@
       { name: "Escritório", emoji: "💼" }
     ];
 
-    // Helpers (emoji labels)
+    // Emoji label helpers
     const emojiSus = Object.fromEntries(SUSPECTS.map(x => [x.name, x.emoji]));
     const emojiObj = Object.fromEntries(OBJECTS.map(x => [x.name, x.emoji]));
     const emojiLoc = Object.fromEntries(LOCATIONS.map(x => [x.name, x.emoji]));
@@ -283,39 +346,31 @@
     const labelObj = (name) => `${emojiObj[name] || "🧰"} ${name}`;
     const labelLoc = (name) => `${emojiLoc[name] || "📍"} ${name}`;
 
-    // ---- Clues: 24 (mistura de certeiras + vagas)
-    // Regra:
-    // - hard: só entra no baralho se for TRUE no mistério (sempre correta)
-    // - soft: entra sempre, mas é "tendência" (pode ser falsa)
-    // weightTrue/weightFalse controlam o quanto ela “puxa” a probabilidade no painel
+    // ---- 24 Clues (mistura de "hard" e "soft") ----
     const CLUE_TEMPLATES = [
-      // 12 "hard" (sempre verdadeiras)
+      // 12 hard (sempre verdadeiras)
       { id:"H1", kind:"hard", text:"O culpado NÃO é Alice.", ok:(m)=>m.suspect!=="Alice" },
       { id:"H2", kind:"hard", text:"O culpado NÃO é Bruno.", ok:(m)=>m.suspect!=="Bruno" },
       { id:"H3", kind:"hard", text:"O culpado NÃO é Carla.", ok:(m)=>m.suspect!=="Carla" },
       { id:"H4", kind:"hard", text:"O culpado NÃO é Diego.", ok:(m)=>m.suspect!=="Diego" },
       { id:"H5", kind:"hard", text:"O culpado NÃO é Elisa.", ok:(m)=>m.suspect!=="Elisa" },
       { id:"H6", kind:"hard", text:"O culpado NÃO é Fábio.", ok:(m)=>m.suspect!=="Fábio" },
-
       { id:"H7", kind:"hard", text:"O objeto NÃO é a Tesoura.", ok:(m)=>m.object!=="Tesoura" },
       { id:"H8", kind:"hard", text:"O objeto NÃO é a Lanterna.", ok:(m)=>m.object!=="Lanterna" },
       { id:"H9", kind:"hard", text:"O objeto NÃO é a Corda.", ok:(m)=>m.object!=="Corda" },
-
       { id:"H10", kind:"hard", text:"Não foi no Jardim.", ok:(m)=>m.location!=="Jardim" },
       { id:"H11", kind:"hard", text:"Não foi no Quarto.", ok:(m)=>m.location!=="Quarto" },
       { id:"H12", kind:"hard", text:"Não foi na Garagem.", ok:(m)=>m.location!=="Garagem" },
 
-      // 12 "soft" (vagas, podem ser falsas)
+      // 12 soft (vagas)
       { id:"S1", kind:"soft", text:"Parece mais provável que o culpado seja uma mulher.", test:(m)=>["Alice","Carla","Elisa"].includes(m.suspect), weightTrue:0.70, weightFalse:0.30 },
       { id:"S2", kind:"soft", text:"Parece mais provável que o culpado seja um homem.", test:(m)=>["Bruno","Diego","Fábio"].includes(m.suspect), weightTrue:0.70, weightFalse:0.30 },
       { id:"S3", kind:"soft", text:"Há indícios de que o nome do culpado começa com vogal.", test:(m)=>["Alice","Elisa"].includes(m.suspect), weightTrue:0.65, weightFalse:0.35 },
       { id:"S4", kind:"soft", text:"Há indícios de que o nome do culpado começa com consoante.", test:(m)=>["Bruno","Carla","Diego","Fábio"].includes(m.suspect), weightTrue:0.65, weightFalse:0.35 },
-
       { id:"S5", kind:"soft", text:"É mais provável que o objeto caiba na mão.", test:(m)=>["Chave","Livro","Copo","Lanterna"].includes(m.object), weightTrue:0.68, weightFalse:0.32 },
       { id:"S6", kind:"soft", text:"É mais provável que o objeto NÃO seja cortante.", test:(m)=>m.object!=="Tesoura", weightTrue:0.70, weightFalse:0.30 },
       { id:"S7", kind:"soft", text:"Há indícios de que o objeto NÃO é usado para iluminar.", test:(m)=>m.object!=="Lanterna", weightTrue:0.70, weightFalse:0.30 },
       { id:"S8", kind:"soft", text:"Há indícios de que o objeto NÃO tem “fio/linha”.", test:(m)=>m.object!=="Corda", weightTrue:0.66, weightFalse:0.34 },
-
       { id:"S9", kind:"soft", text:"Parece mais provável que foi em um lugar dentro da casa.", test:(m)=>["Cozinha","Sala","Quarto","Escritório"].includes(m.location), weightTrue:0.70, weightFalse:0.30 },
       { id:"S10", kind:"soft", text:"Parece mais provável que foi em um lugar externo.", test:(m)=>["Jardim","Garagem"].includes(m.location), weightTrue:0.70, weightFalse:0.30 },
       { id:"S11", kind:"soft", text:"Há indícios de que foi em um ambiente com móveis.", test:(m)=>["Sala","Quarto","Escritório","Cozinha"].includes(m.location), weightTrue:0.65, weightFalse:0.35 },
@@ -358,7 +413,7 @@
     let isHost = false;
     let unsubRoom = null;
 
-    // Local: última mão e últimas pistas (pra painel de prob)
+    // local cached for probabilities
     let lastHand = [];
     let lastPublicClues = [];
 
@@ -392,16 +447,16 @@
         crossed: { sus: new Set(), obj: new Set(), loc: new Set() },
         possible:{ sus: new Set(), obj: new Set(), loc: new Set() }
       };
-      try {
+      try{
         const raw = localStorage.getItem(checklistKey());
         if(!raw) return;
         const data = JSON.parse(raw);
-        (data.crossed?.sus||[]).forEach(x => checklist.crossed.sus.add(x));
-        (data.crossed?.obj||[]).forEach(x => checklist.crossed.obj.add(x));
-        (data.crossed?.loc||[]).forEach(x => checklist.crossed.loc.add(x));
-        (data.possible?.sus||[]).forEach(x => checklist.possible.sus.add(x));
-        (data.possible?.obj||[]).forEach(x => checklist.possible.obj.add(x));
-        (data.possible?.loc||[]).forEach(x => checklist.possible.loc.add(x));
+        (data.crossed?.sus||[]).forEach(x=>checklist.crossed.sus.add(x));
+        (data.crossed?.obj||[]).forEach(x=>checklist.crossed.obj.add(x));
+        (data.crossed?.loc||[]).forEach(x=>checklist.crossed.loc.add(x));
+        (data.possible?.sus||[]).forEach(x=>checklist.possible.sus.add(x));
+        (data.possible?.obj||[]).forEach(x=>checklist.possible.obj.add(x));
+        (data.possible?.loc||[]).forEach(x=>checklist.possible.loc.add(x));
       } catch {}
     }
     function setMode(mode){
@@ -424,20 +479,15 @@
 
       if(checkMode === "cross"){
         if(crossedSet.has(value)) crossedSet.delete(value);
-        else {
-          crossedSet.add(value);
-          possibleSet.delete(value);
-        }
+        else { crossedSet.add(value); possibleSet.delete(value); }
       } else {
         if(possibleSet.has(value)) possibleSet.delete(value);
-        else {
-          possibleSet.add(value);
-          crossedSet.delete(value);
-        }
+        else { possibleSet.add(value); crossedSet.delete(value); }
       }
       saveChecklist();
       renderChecklist();
-      updateProbabilities(); // <- recalcula
+      // recalcula se painel estiver ligado
+      if($("probCard").style.display !== "none") updateProbabilities();
     }
     function clearChecklist(){
       checklist = {
@@ -446,7 +496,7 @@
       };
       saveChecklist();
       renderChecklist();
-      updateProbabilities();
+      if($("probCard").style.display !== "none") updateProbabilities();
     }
     function buildCheckItem(group, item){
       const value = item.name;
@@ -469,20 +519,20 @@
       return div;
     }
     function renderChecklist(){
-      const susBox = $("checkSus");
-      const objBox = $("checkObj");
-      const locBox = $("checkLoc");
-      susBox.innerHTML = "";
-      objBox.innerHTML = "";
-      locBox.innerHTML = "";
-      SUSPECTS.forEach(it => susBox.appendChild(buildCheckItem("sus", it)));
-      OBJECTS.forEach(it => objBox.appendChild(buildCheckItem("obj", it)));
-      LOCATIONS.forEach(it => locBox.appendChild(buildCheckItem("loc", it)));
+      $("checkSus").innerHTML = "";
+      $("checkObj").innerHTML = "";
+      $("checkLoc").innerHTML = "";
+      SUSPECTS.forEach(it => $("checkSus").appendChild(buildCheckItem("sus", it)));
+      OBJECTS.forEach(it => $("checkObj").appendChild(buildCheckItem("obj", it)));
+      LOCATIONS.forEach(it => $("checkLoc").appendChild(buildCheckItem("loc", it)));
     }
+
     $("btnModePossible").onclick = () => setMode(checkMode === "possible" ? "cross" : "possible");
     $("btnClearChecklist").onclick = () => { if(confirm("Limpar seu checklist (só o seu)?")) clearChecklist(); };
 
     // ---------- Probabilities engine ----------
+    const clueById = Object.fromEntries(CLUE_TEMPLATES.map(c => [c.id, c]));
+
     function allWorlds(){
       const worlds = [];
       for(const s of SUSPECTS) for(const o of OBJECTS) for(const l of LOCATIONS){
@@ -491,25 +541,19 @@
       return worlds;
     }
 
-    // Hard eliminations from my hand + checklist crossed
     function isEliminatedByMe(world){
-      // my hand: any card I hold cannot be in solution
       for(const c of lastHand){
         if(c.t==="sus" && c.n===world.suspect) return true;
         if(c.t==="obj" && c.n===world.object) return true;
         if(c.t==="loc" && c.n===world.location) return true;
       }
-      // checklist crossed
       if(checklist.crossed.sus.has(world.suspect)) return true;
       if(checklist.crossed.obj.has(world.object)) return true;
       if(checklist.crossed.loc.has(world.location)) return true;
       return false;
     }
 
-    // Soft “possible” push (user hint only)
     function possibleBoost(world){
-      // small multiplier if user marked as POSSÍVEL
-      // (isso é “ajudante”, não é regra do jogo)
       let mul = 1.0;
       if(checklist.possible.sus.has(world.suspect)) mul *= 1.25;
       if(checklist.possible.obj.has(world.object)) mul *= 1.25;
@@ -517,19 +561,13 @@
       return mul;
     }
 
-    // Map of clue templates by id
-    const clueById = Object.fromEntries(CLUE_TEMPLATES.map(c => [c.id, c]));
-
     function weightFromClue(world, clueObj){
-      // clueObj stored in DB as {id, text, kind, at}
       const tpl = clueById[clueObj.id];
       if(!tpl) return 1;
 
       if(tpl.kind === "hard"){
-        // hard clue must be TRUE; any world that violates becomes impossible
         return tpl.ok(world) ? 1 : 0;
       } else {
-        // soft clue: gives more weight if it matches, less otherwise
         const t = tpl.test(world);
         return t ? (tpl.weightTrue ?? 0.7) : (tpl.weightFalse ?? 0.3);
       }
@@ -537,14 +575,12 @@
 
     function computeMarginals(){
       const worlds = allWorlds();
-      let weights = new Array(worlds.length).fill(1);
+      const weights = new Array(worlds.length).fill(1);
 
-      // apply eliminations
       for(let i=0;i<worlds.length;i++){
         if(isEliminatedByMe(worlds[i])) weights[i] = 0;
       }
 
-      // apply public clues
       for(const clue of (lastPublicClues || [])){
         for(let i=0;i<worlds.length;i++){
           if(weights[i] === 0) continue;
@@ -552,7 +588,6 @@
         }
       }
 
-      // apply "possible" boosts
       for(let i=0;i<worlds.length;i++){
         if(weights[i] === 0) continue;
         weights[i] *= possibleBoost(worlds[i]);
@@ -573,17 +608,15 @@
       return { ps, po, pl };
     }
 
-    function renderProbList(containerId, items, probs, labelFn){
+    function renderProbList(containerId, items, probs){
       const box = $(containerId);
       box.innerHTML = "";
       const sorted = [...items].map(it => ({
-        name: it.name,
-        emoji: it.emoji,
-        p: probs[it.name] || 0
+        name: it.name, emoji: it.emoji, p: probs[it.name] || 0
       })).sort((a,b)=>b.p-a.p);
 
       for(const it of sorted){
-        const pct = Math.round(it.p * 1000)/10; // 1 decimal
+        const pct = Math.round(it.p * 1000)/10;
         const row = document.createElement("div");
         row.className = "probItem";
         row.innerHTML = `
@@ -599,17 +632,11 @@
     }
 
     function updateProbabilities(){
-      // if not in game yet, clear
-      if(!room){
-        $("probSus").innerHTML = "";
-        $("probObj").innerHTML = "";
-        $("probLoc").innerHTML = "";
-        return;
-      }
+      if($("probCard").style.display === "none") return; // desligado
       const { ps, po, pl } = computeMarginals();
-      renderProbList("probSus", SUSPECTS, ps, labelSus);
-      renderProbList("probObj", OBJECTS,  po, labelObj);
-      renderProbList("probLoc", LOCATIONS,pl, labelLoc);
+      renderProbList("probSus", SUSPECTS, ps);
+      renderProbList("probObj", OBJECTS,  po);
+      renderProbList("probLoc", LOCATIONS,pl);
     }
 
     // UI init select options (com emojis)
@@ -623,6 +650,30 @@
     fillSelect($("accObj"), OBJECTS, labelObj);
     fillSelect($("accLoc"), LOCATIONS, labelLoc);
 
+    // ---------- Modal logic (mostrar 1 carta) ----------
+    const modal = document.getElementById("cardModal");
+    const modalBackdrop = document.getElementById("cardModalBackdrop");
+    const btnCloseModal = document.getElementById("btnCloseCardModal");
+    const modalCardBig = document.getElementById("modalCardBig");
+
+    window.__showCardModal = (label, category) => {
+      modalCardBig.innerHTML = `<div>${label}</div><small>${category}</small>`;
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    };
+
+    function closeCardModal(){
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+    }
+    btnCloseModal.onclick = closeCardModal;
+    modalBackdrop.onclick = closeCardModal;
+    window.addEventListener("keydown", (e) => {
+      if(e.key === "Escape" && modal.classList.contains("open")) closeCardModal();
+    });
+
     // ---------- auth ----------
     $("btnAnon").onclick = async () => {
       try{
@@ -631,6 +682,7 @@
         await signInAnonymously(auth);
       } catch(e){ showErr(e); }
     };
+
     onAuthStateChanged(auth, (user) => {
       if(!user) return;
       uid = user.uid;
@@ -643,6 +695,7 @@
     // ---------- Firestore model ----------
     // rooms/{ROOM}
     //   hostId, phase, createdAt
+    //   settings: { showProbabilities: boolean }
     //   players: { [uid]: { name, alive } }
     //   hands: { [uid]: [{t:"sus"|"obj"|"loc", n:"Nome"}] }
     //   clueDeck: [{id, kind, text}], clueIndex
@@ -661,6 +714,7 @@
         await joinOrCreate(code, true);
       } catch(e){ showErr(e); }
     };
+
     $("btnJoin").onclick = async () => {
       try{
         $("errBox").textContent = "";
@@ -681,6 +735,7 @@
           createdAt: serverTimestamp(),
           hostId: uid,
           phase: "lobby",
+          settings: { showProbabilities: false }, // ✅ padrão
           players: {},
           hands: {},
           publicClues: [],
@@ -691,7 +746,7 @@
 
       await updateDoc(rref, { [`players.${uid}`]: { name: meName, alive: true } });
 
-      // checklist
+      // checklist local
       loadChecklist();
       setMode("cross");
       renderChecklist();
@@ -714,8 +769,15 @@
         $("hostPill").style.display = isHost ? "inline-block" : "none";
         $("phaseLabel").textContent = data.phase || "lobby";
 
+        // host-only actions
         $("btnStart").disabled = !isHost || (data.phase !== "lobby");
         $("btnReset").disabled = !isHost;
+
+        // settings: showProbabilities (host controls only in lobby)
+        const showProb = !!data.settings?.showProbabilities;
+        $("probCard").style.display = showProb ? "" : "none";
+        $("btnToggleProb").style.display = (isHost && data.phase === "lobby") ? "" : "none";
+        $("btnToggleProb").textContent = "Probabilidades: " + (showProb ? "LIGADO" : "DESLIGADO");
 
         renderPlayers(data.players || {});
 
@@ -732,10 +794,25 @@
         $("btnGuess").disabled = data.phase !== "playing" || !meAlive;
         $("btnAccuse").disabled = data.phase !== "playing" || !meAlive;
 
-        // update probabilities whenever snapshot updates
-        updateProbabilities();
+        if(showProb) updateProbabilities();
       });
     }
+
+    $("btnToggleProb").onclick = async () => {
+      try{
+        if(!room || !isHost) return;
+        const rref = roomDocRef(room);
+        const snap = await getDoc(rref);
+        const data = snap.data();
+        if(!data) return;
+        if(data.phase !== "lobby"){
+          alert("Só dá pra ligar/desligar antes de iniciar a partida.");
+          return;
+        }
+        const current = !!data.settings?.showProbabilities;
+        await updateDoc(rref, { "settings.showProbabilities": !current });
+      } catch(e){ showErr(e); }
+    };
 
     function renderPlayers(players){
       const entries = Object.entries(players);
@@ -750,18 +827,36 @@
       }).join(" ");
     }
 
+    // ✅ mão clicável -> abre modal com 1 carta
     function renderHand(hand){
       if(!hand || hand.length===0){
         $("handBox").innerHTML = `<div class="muted">Ainda sem cartas (o host precisa iniciar).</div>`;
         return;
       }
+
       const pills = hand.map(c => {
         const label =
           c.t === "sus" ? labelSus(c.n) :
           c.t === "obj" ? labelObj(c.n) :
           labelLoc(c.n);
-        return `<span class="pill">${escapeHtml(label)}</span>`;
+
+        const cat =
+          c.t === "sus" ? "Suspeito" :
+          c.t === "obj" ? "Objeto" :
+          "Lugar";
+
+        // IMPORTANTE: encode para não quebrar aspas no onclick
+        const safeLabel = encodeURIComponent(label);
+        const safeCat = encodeURIComponent(cat);
+
+        return `
+          <button class="handBtn" type="button"
+            onclick="window.__showCardModal(decodeURIComponent('${safeLabel}'), decodeURIComponent('${safeCat}'))">
+            <span class="pill">${escapeHtml(label)}</span>
+          </button>
+        `;
       });
+
       $("handBox").innerHTML = pills.join(" ");
     }
 
@@ -814,15 +909,11 @@
           location: choice(LOCATIONS).name
         };
 
-        // Build clue deck:
-        // - include all soft
-        // - include only hard clues that are true for this mystery
+        // clue deck: hard true + all soft => 24
         const hardOk = CLUE_TEMPLATES.filter(c => c.kind==="hard" && c.ok(mystery));
         const softAll = CLUE_TEMPLATES.filter(c => c.kind==="soft");
         const clueDeck = shuffle([...hardOk, ...softAll]).slice(0, 24).map(c => ({
-          id: c.id,
-          kind: c.kind,
-          text: c.text
+          id: c.id, kind: c.kind, text: c.text
         }));
 
         // Build deck as structured cards
@@ -850,7 +941,7 @@
 
         await updateDoc(rref, {
           phase: "playing",
-          mystery,        // ⚠️ simples (sem anti-trapaça)
+          mystery, // ⚠️ simples
           hands,
           clueDeck,
           clueIndex: 0,
