@@ -31,6 +31,7 @@
     <div class="card">
       <h1>🕵️ Suspect Online</h1>
       <div class="muted">Clue Suspect simplificado • Sala por código • Firebase Realtime</div>
+      <div class="tiny muted">Hospedável no GitHub Pages (um arquivo só).</div>
     </div>
 
     <div class="card" id="authCard">
@@ -40,6 +41,9 @@
         <button id="btnAnon">Entrar (anônimo)</button>
       </div>
       <div class="tiny" id="uidLine"></div>
+      <div class="tiny muted" style="margin-top:6px">
+        Lembrete: no Firebase Console, ative <b>Authentication → Anonymous</b> e <b>Realtime Database</b>.
+      </div>
     </div>
 
     <div class="card" id="roomCard" style="display:none">
@@ -86,7 +90,10 @@
             <select id="guessObj" style="margin-top:8px"></select>
             <select id="guessLoc" style="margin-top:8px"></select>
             <button id="btnGuess" style="margin-top:10px">Fazer palpite</button>
-            <div class="tiny muted" style="margin-top:6px">O palpite entra no log e todos podem responder “tenho/não tenho” pelo chat (voz/WhatsApp) — ou a gente automatiza isso depois.</div>
+            <div class="tiny muted" style="margin-top:6px">
+              (Versão simples) O palpite vai pro log. A resposta “tenho/não tenho” pode ser no Whats/voz.
+              Se quiser, eu automatizo depois.
+            </div>
           </div>
 
           <div class="card" style="margin:0">
@@ -95,7 +102,7 @@
             <select id="accObj" style="margin-top:8px"></select>
             <select id="accLoc" style="margin-top:8px"></select>
             <button id="btnAccuse" class="danger" style="margin-top:10px">Acusar</button>
-            <div class="tiny muted" style="margin-top:6px">Se acertar, vence. Se errar, você fica “fora” (marcado no jogo).</div>
+            <div class="tiny muted" style="margin-top:6px">Se errar, você fica “fora” (marcado no jogo).</div>
           </div>
         </div>
       </div>
@@ -112,7 +119,6 @@
     </div>
   </div>
 
-  <!-- Firebase (CDN) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
@@ -120,23 +126,26 @@
       getDatabase, ref, set, get, update, push, onValue, onDisconnect, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
-    // ------------- CONFIG: TROQUE AQUI -------------
+    // ================== FIREBASE CONFIG (SEU) ==================
+    // NOTE: Você não enviou o databaseURL. Em Realtime Database ele é necessário.
+    // Estou assumindo o padrão: https://<projectId>-default-rtdb.firebaseio.com
+    // Se no seu console aparecer outro (ex: ...europe-west1...), troque aqui.
     const firebaseConfig = {
-      apiKey: "SUA_API_KEY",
-      authDomain: "SEU_PROJECT.firebaseapp.com",
-      databaseURL: "https://SEU_PROJECT-default-rtdb.firebaseio.com",
-      projectId: "SEU_PROJECT",
-      storageBucket: "SEU_PROJECT.appspot.com",
-      messagingSenderId: "SEU_SENDER_ID",
-      appId: "SEU_APP_ID"
+      apiKey: "AIzaSyCIQ5Sonh7AVrmBCpEWr99V4UuyOH1gGyQ",
+      authDomain: "clue-80365.firebaseapp.com",
+      projectId: "clue-80365",
+      storageBucket: "clue-80365.firebasestorage.app",
+      messagingSenderId: "870296918956",
+      appId: "1:870296918956:web:f8f9d95b44f8689af27809",
+      databaseURL: "https://clue-80365-default-rtdb.firebaseio.com"
     };
-    // -----------------------------------------------
+    // ============================================================
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
 
-    // ----- DADOS DO JOGO (você pode trocar/expandir) -----
+    // ----- DADOS DO JOGO -----
     const SUSPECTS = ["Alice", "Bruno", "Carla", "Diego", "Elisa", "Fábio"];
     const OBJECTS  = ["Chave", "Livro", "Copo", "Corda", "Tesoura", "Lanterna"];
     const LOCATIONS= ["Cozinha", "Sala", "Quarto", "Jardim", "Garagem", "Escritório"];
@@ -165,6 +174,10 @@
     }
 
     function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+    function escapeHtml(s){
+      return (s||"").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+    }
 
     // ---------- state ----------
     let uid = null;
@@ -227,7 +240,6 @@
 
       if(!snap.exists()){
         if(!createIfMissing) return alert("Sala não existe. Peça o código certo ou crie uma nova.");
-        // create room
         const hostId = uid;
         await set(roomRef, {
           createdAt: serverTimestamp(),
@@ -291,9 +303,11 @@
 
     function renderPlayers(players){
       const entries = Object.entries(players);
-      if(entries.length === 0){ $("playersBox").innerHTML = `<span class="muted">Sem jogadores.</span>`; return; }
+      if(entries.length === 0){
+        $("playersBox").innerHTML = `<span class="muted">Sem jogadores.</span>`;
+        return;
+      }
       $("playersBox").innerHTML = entries.map(([id,p]) => {
-        const hostMark = (id === (players.__hostId)) ? " (host)" : "";
         const alive = p.alive === false ? "❌ fora" : "✅";
         const you = id === uid ? " • você" : "";
         return `<span class="pill">${alive} ${escapeHtml(p.name||"Jogador")}${you}</span>`;
@@ -324,10 +338,6 @@
       $("logBox").scrollTop = $("logBox").scrollHeight;
     }
 
-    function escapeHtml(s){
-      return (s||"").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
-    }
-
     async function pushLog(roomCode, text){
       const logRef = ref(db, `rooms/${roomCode}/log`);
       await push(logRef, { text, at: Date.now() });
@@ -344,12 +354,13 @@
       const players = data.players ? Object.keys(data.players) : [];
       if(players.length < 2) return alert("Entre com pelo menos 2 jogadores para ficar legal 🙂");
 
-      // build deck: all cards except mystery
+      // build mystery + deck (VERSÃO SIMPLES)
       const mystery = {
         suspect: choice(SUSPECTS),
         object: choice(OBJECTS),
         location: choice(LOCATIONS)
       };
+
       const allCards = [
         ...SUSPECTS.map(x=>`Suspeito: ${x}`),
         ...OBJECTS.map(x=>`Objeto: ${x}`),
@@ -374,12 +385,12 @@
         idx++;
       }
 
-      // shuffle clues too
+      // clue deck
       const clueDeck = shuffle(CLUES).map(c => ({...c}));
 
       await update(roomRef, {
         phase: "playing",
-        mystery,        // ⚠️ em app “sério”, isso deveria ficar oculto (Cloud Function). Aqui é simples.
+        mystery,        // ⚠️ simples (dá pra trapacear vendo no banco/devtools)
         hands,
         clueDeck,
         clueIndex: 0,
@@ -439,7 +450,6 @@
         alert(`Você venceu! Era ${s} com ${o} em ${l}.`);
       } else {
         await pushLog(room, `💥 ${meName} acusou e ERROU: ${s} + ${o} + ${l}. (Ficou fora)`);
-        // mark me as out
         await update(ref(db, `rooms/${room}/players/${uid}`), { alive:false });
         alert("Errou! Você ficou fora da disputa (mas pode continuar assistindo).");
       }
