@@ -7,24 +7,80 @@
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e7ecff; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 14px; }
+    .wrap { max-width: 1020px; margin: 0 auto; padding: 14px; }
     .card { background:#121b2f; border:1px solid #223055; border-radius:14px; padding:14px; margin: 10px 0; }
     h1 { font-size: 20px; margin: 6px 0 10px; }
     h2 { font-size: 16px; margin: 0 0 10px; opacity:.95;}
-    input, button, select { font-size: 16px; padding: 10px 12px; border-radius: 12px; border:1px solid #2a3c67; background:#0c1530; color:#e7ecff; }
+    input, button, select {
+      font-size: 16px; padding: 10px 12px; border-radius: 12px;
+      border:1px solid #2a3c67; background:#0c1530; color:#e7ecff;
+    }
     button { background:#2a55ff; border:none; cursor:pointer; }
-    button.secondary { background:#223055; }
+    button.secondary { background:#223055; border:1px solid #2a3c67; }
     button.danger { background:#ff3b4d; }
+    button.on { outline: 2px solid rgba(255,255,255,.35); }
     button:disabled { opacity:.5; cursor:not-allowed; }
     .row { display:flex; gap:10px; flex-wrap: wrap; }
     .row > * { flex:1; min-width: 160px; }
     .pill { display:inline-block; padding: 6px 10px; border-radius: 999px; background:#0c1530; border:1px solid #2a3c67; margin: 4px 6px 0 0; font-size: 13px; }
     .muted { opacity:.75; }
-    .log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; white-space: pre-wrap; background:#0c1530; border:1px solid #2a3c67; border-radius:12px; padding:10px; max-height: 260px; overflow:auto;}
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    @media (max-width:720px){ .grid2 { grid-template-columns: 1fr; } }
     .tiny { font-size: 12px; opacity:.85; }
     .err { color:#ffb4b4; }
+
+    .log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px; white-space: pre-wrap;
+      background:#0c1530; border:1px solid #2a3c67; border-radius:12px;
+      padding:10px; max-height: 260px; overflow:auto;
+    }
+
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width:720px){ .grid2 { grid-template-columns: 1fr; } }
+
+    /* Checklist */
+    .checkGrid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+    @media (max-width:900px){ .checkGrid { grid-template-columns: 1fr; } }
+
+    .checkItem {
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 12px; border-radius: 12px;
+      background:#0c1530; border:1px solid #2a3c67;
+      cursor:pointer; user-select:none;
+      transition: transform .05s ease;
+    }
+    .checkItem:active { transform: scale(0.99); }
+
+    .box {
+      width:18px; height:18px; border-radius:6px;
+      border:2px solid #6e86c9;
+      flex: 0 0 auto;
+      display:flex; align-items:center; justify-content:center;
+      font-size: 13px;
+    }
+    .label { font-size: 15px; display:flex; gap:8px; align-items:center; }
+    .emoji { width: 22px; text-align:center; }
+
+    .checkItem.crossed { opacity: .55; }
+    .checkItem.crossed .label { text-decoration: line-through; text-decoration-thickness: 2px; }
+    .checkItem.crossed .box { background:#2a55ff; border-color:#2a55ff; }
+    .checkItem.crossed .box::after { content:"✓"; color:white; font-weight:700; }
+
+    .checkItem.possible { border-color: #ffd166; box-shadow: 0 0 0 2px rgba(255,209,102,.18) inset; }
+    .checkItem.possible .box { border-color:#ffd166; }
+    .possibleTag { margin-left:auto; font-size:12px; opacity:.9; padding:4px 8px; border-radius:999px; border:1px solid #ffd166; color:#ffd166; }
+
+    /* Probabilities */
+    .probGrid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+    @media (max-width:900px){ .probGrid { grid-template-columns: 1fr; } }
+    .probItem{
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 12px; border-radius: 12px;
+      background:#0c1530; border:1px solid #2a3c67;
+    }
+    .barWrap{ flex:1; }
+    .barBg{ height:10px; border-radius:999px; background:#142248; border:1px solid #2a3c67; overflow:hidden; }
+    .barFill{ height:100%; width:0%; background:#2a55ff; }
+    .pct{ width:56px; text-align:right; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
@@ -32,7 +88,7 @@
     <div class="card">
       <h1>🕵️ Suspect Online</h1>
       <div class="muted">Clue Suspect simplificado • Sala por código • Firebase Firestore</div>
-      <div class="tiny muted">Hospedável no GitHub Pages (um arquivo só).</div>
+      <div class="tiny muted">Checklist com emojis + modo “POSSÍVEL” + painel de probabilidades (ajudante).</div>
     </div>
 
     <div class="card" id="authCard">
@@ -42,9 +98,6 @@
         <button id="btnAnon">Entrar (anônimo)</button>
       </div>
       <div class="tiny" id="uidLine"></div>
-      <div class="tiny muted" style="margin-top:6px">
-        No Firebase Console: ative <b>Authentication → Anonymous</b> e crie o <b>Firestore Database</b>.
-      </div>
     </div>
 
     <div class="card" id="roomCard" style="display:none">
@@ -76,6 +129,64 @@
         </div>
       </div>
 
+      <!-- PROBABILIDADES -->
+      <div class="card">
+        <h2>Probabilidades agora <span class="tiny muted">(ajudante — baseado em pistas + suas eliminações)</span></h2>
+        <div class="probGrid">
+          <div class="card" style="margin:0">
+            <h2>Suspeitos</h2>
+            <div id="probSus"></div>
+          </div>
+          <div class="card" style="margin:0">
+            <h2>Objetos</h2>
+            <div id="probObj"></div>
+          </div>
+          <div class="card" style="margin:0">
+            <h2>Lugares</h2>
+            <div id="probLoc"></div>
+          </div>
+        </div>
+        <div class="tiny muted" style="margin-top:8px">
+          Dica: itens riscados/na sua mão viram 0%. Itens marcados como “POSSÍVEL” ganham um empurrão (não é certeza).
+        </div>
+      </div>
+
+      <!-- CHECKLIST -->
+      <div class="card">
+        <div class="row" style="align-items:center">
+          <div style="flex:2; min-width:220px">
+            <h2 style="margin:0">Checklist de dedução</h2>
+            <div class="tiny muted">
+              Modo atual:
+              <span id="modeLabel" class="pill">RISCAR</span>
+              • Toque em um item para aplicar o modo • Toque de novo para desfazer.
+            </div>
+          </div>
+          <div style="flex:1; min-width:220px">
+            <button id="btnModePossible" class="secondary" style="width:100%">Marcar como POSSÍVEL</button>
+            <div class="tiny muted" style="margin-top:6px">Quando ativo, tocar marca/desmarca “POSSÍVEL”.</div>
+          </div>
+          <div style="flex:1; min-width:180px">
+            <button id="btnClearChecklist" class="secondary" style="width:100%">Limpar meu checklist</button>
+          </div>
+        </div>
+
+        <div class="checkGrid" style="margin-top:10px">
+          <div class="card" style="margin:0">
+            <h2>Suspeitos</h2>
+            <div id="checkSus"></div>
+          </div>
+          <div class="card" style="margin:0">
+            <h2>Objetos</h2>
+            <div id="checkObj"></div>
+          </div>
+          <div class="card" style="margin:0">
+            <h2>Lugares</h2>
+            <div id="checkLoc"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h2>Ações</h2>
         <div class="row">
@@ -91,9 +202,6 @@
             <select id="guessObj" style="margin-top:8px"></select>
             <select id="guessLoc" style="margin-top:8px"></select>
             <button id="btnGuess" style="margin-top:10px">Fazer palpite</button>
-            <div class="tiny muted" style="margin-top:6px">
-              (Versão simples) O palpite vai pro log. Respostas podem ser no Whats/voz — ou eu automatizo depois.
-            </div>
           </div>
 
           <div class="card" style="margin:0">
@@ -136,25 +244,82 @@
       messagingSenderId: "870296918956",
       appId: "1:870296918956:web:f8f9d95b44f8689af27809"
     };
-    // ============================================================
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const fs = getFirestore(app);
 
-    // ----- DADOS DO JOGO -----
-    const SUSPECTS = ["Alice", "Bruno", "Carla", "Diego", "Elisa", "Fábio"];
-    const OBJECTS  = ["Chave", "Livro", "Copo", "Corda", "Tesoura", "Lanterna"];
-    const LOCATIONS= ["Cozinha", "Sala", "Quarto", "Jardim", "Garagem", "Escritório"];
+    // ----- CARTAS + EMOJIS -----
+    const SUSPECTS = [
+      { name: "Alice", emoji: "👩" },
+      { name: "Bruno", emoji: "👨" },
+      { name: "Carla", emoji: "👩‍🦱" },
+      { name: "Diego", emoji: "👨‍🦰" },
+      { name: "Elisa", emoji: "👩‍🦳" },
+      { name: "Fábio", emoji: "👨‍🦱" }
+    ];
+    const OBJECTS = [
+      { name: "Chave", emoji: "🔑" },
+      { name: "Livro", emoji: "📘" },
+      { name: "Copo", emoji: "🥛" },
+      { name: "Corda", emoji: "🧵" },
+      { name: "Tesoura", emoji: "✂️" },
+      { name: "Lanterna", emoji: "🔦" }
+    ];
+    const LOCATIONS = [
+      { name: "Cozinha", emoji: "🍳" },
+      { name: "Sala", emoji: "🛋️" },
+      { name: "Quarto", emoji: "🛏️" },
+      { name: "Jardim", emoji: "🌳" },
+      { name: "Garagem", emoji: "🚗" },
+      { name: "Escritório", emoji: "💼" }
+    ];
 
-    const CLUES = [
-      { text:"O suspeito NÃO usa óculos." },
-      { text:"O culpado é alguém cujo nome começa com vogal." },
-      { text:"O objeto NÃO é cortante." },
-      { text:"O objeto é algo que dá pra segurar com uma mão." },
-      { text:"Não foi em um lugar de descanso." },
-      { text:"Foi em um ambiente com “mesa” por perto." },
-      { text:"Não foi no Jardim e não foi a Lanterna." }
+    // Helpers (emoji labels)
+    const emojiSus = Object.fromEntries(SUSPECTS.map(x => [x.name, x.emoji]));
+    const emojiObj = Object.fromEntries(OBJECTS.map(x => [x.name, x.emoji]));
+    const emojiLoc = Object.fromEntries(LOCATIONS.map(x => [x.name, x.emoji]));
+    const labelSus = (name) => `${emojiSus[name] || "🕵️"} ${name}`;
+    const labelObj = (name) => `${emojiObj[name] || "🧰"} ${name}`;
+    const labelLoc = (name) => `${emojiLoc[name] || "📍"} ${name}`;
+
+    // ---- Clues: 24 (mistura de certeiras + vagas)
+    // Regra:
+    // - hard: só entra no baralho se for TRUE no mistério (sempre correta)
+    // - soft: entra sempre, mas é "tendência" (pode ser falsa)
+    // weightTrue/weightFalse controlam o quanto ela “puxa” a probabilidade no painel
+    const CLUE_TEMPLATES = [
+      // 12 "hard" (sempre verdadeiras)
+      { id:"H1", kind:"hard", text:"O culpado NÃO é Alice.", ok:(m)=>m.suspect!=="Alice" },
+      { id:"H2", kind:"hard", text:"O culpado NÃO é Bruno.", ok:(m)=>m.suspect!=="Bruno" },
+      { id:"H3", kind:"hard", text:"O culpado NÃO é Carla.", ok:(m)=>m.suspect!=="Carla" },
+      { id:"H4", kind:"hard", text:"O culpado NÃO é Diego.", ok:(m)=>m.suspect!=="Diego" },
+      { id:"H5", kind:"hard", text:"O culpado NÃO é Elisa.", ok:(m)=>m.suspect!=="Elisa" },
+      { id:"H6", kind:"hard", text:"O culpado NÃO é Fábio.", ok:(m)=>m.suspect!=="Fábio" },
+
+      { id:"H7", kind:"hard", text:"O objeto NÃO é a Tesoura.", ok:(m)=>m.object!=="Tesoura" },
+      { id:"H8", kind:"hard", text:"O objeto NÃO é a Lanterna.", ok:(m)=>m.object!=="Lanterna" },
+      { id:"H9", kind:"hard", text:"O objeto NÃO é a Corda.", ok:(m)=>m.object!=="Corda" },
+
+      { id:"H10", kind:"hard", text:"Não foi no Jardim.", ok:(m)=>m.location!=="Jardim" },
+      { id:"H11", kind:"hard", text:"Não foi no Quarto.", ok:(m)=>m.location!=="Quarto" },
+      { id:"H12", kind:"hard", text:"Não foi na Garagem.", ok:(m)=>m.location!=="Garagem" },
+
+      // 12 "soft" (vagas, podem ser falsas)
+      { id:"S1", kind:"soft", text:"Parece mais provável que o culpado seja uma mulher.", test:(m)=>["Alice","Carla","Elisa"].includes(m.suspect), weightTrue:0.70, weightFalse:0.30 },
+      { id:"S2", kind:"soft", text:"Parece mais provável que o culpado seja um homem.", test:(m)=>["Bruno","Diego","Fábio"].includes(m.suspect), weightTrue:0.70, weightFalse:0.30 },
+      { id:"S3", kind:"soft", text:"Há indícios de que o nome do culpado começa com vogal.", test:(m)=>["Alice","Elisa"].includes(m.suspect), weightTrue:0.65, weightFalse:0.35 },
+      { id:"S4", kind:"soft", text:"Há indícios de que o nome do culpado começa com consoante.", test:(m)=>["Bruno","Carla","Diego","Fábio"].includes(m.suspect), weightTrue:0.65, weightFalse:0.35 },
+
+      { id:"S5", kind:"soft", text:"É mais provável que o objeto caiba na mão.", test:(m)=>["Chave","Livro","Copo","Lanterna"].includes(m.object), weightTrue:0.68, weightFalse:0.32 },
+      { id:"S6", kind:"soft", text:"É mais provável que o objeto NÃO seja cortante.", test:(m)=>m.object!=="Tesoura", weightTrue:0.70, weightFalse:0.30 },
+      { id:"S7", kind:"soft", text:"Há indícios de que o objeto NÃO é usado para iluminar.", test:(m)=>m.object!=="Lanterna", weightTrue:0.70, weightFalse:0.30 },
+      { id:"S8", kind:"soft", text:"Há indícios de que o objeto NÃO tem “fio/linha”.", test:(m)=>m.object!=="Corda", weightTrue:0.66, weightFalse:0.34 },
+
+      { id:"S9", kind:"soft", text:"Parece mais provável que foi em um lugar dentro da casa.", test:(m)=>["Cozinha","Sala","Quarto","Escritório"].includes(m.location), weightTrue:0.70, weightFalse:0.30 },
+      { id:"S10", kind:"soft", text:"Parece mais provável que foi em um lugar externo.", test:(m)=>["Jardim","Garagem"].includes(m.location), weightTrue:0.70, weightFalse:0.30 },
+      { id:"S11", kind:"soft", text:"Há indícios de que foi em um ambiente com móveis.", test:(m)=>["Sala","Quarto","Escritório","Cozinha"].includes(m.location), weightTrue:0.65, weightFalse:0.35 },
+      { id:"S12", kind:"soft", text:"Há indícios de que foi perto de algo como uma “mesa”.", test:(m)=>["Cozinha","Escritório"].includes(m.location), weightTrue:0.66, weightFalse:0.34 },
     ];
 
     // ---------- helpers ----------
@@ -192,18 +357,271 @@
     let room = null;
     let isHost = false;
     let unsubRoom = null;
-    let lastRoomData = null;
 
-    // UI init select options
-    function fillSelect(sel, arr){
-      sel.innerHTML = arr.map(x => `<option value="${x}">${x}</option>`).join("");
+    // Local: última mão e últimas pistas (pra painel de prob)
+    let lastHand = [];
+    let lastPublicClues = [];
+
+    // ============ CHECKLIST (LOCAL) ============
+    let checklist = {
+      crossed: { sus: new Set(), obj: new Set(), loc: new Set() },
+      possible:{ sus: new Set(), obj: new Set(), loc: new Set() }
+    };
+    let checkMode = "cross";
+
+    function checklistKey(){
+      return `suspect_checklist_${room || "no_room"}_${uid || "no_uid"}`;
     }
-    fillSelect($("guessSus"), SUSPECTS);
-    fillSelect($("guessObj"), OBJECTS);
-    fillSelect($("guessLoc"), LOCATIONS);
-    fillSelect($("accSus"), SUSPECTS);
-    fillSelect($("accObj"), OBJECTS);
-    fillSelect($("accLoc"), LOCATIONS);
+    function saveChecklist(){
+      const data = {
+        crossed: {
+          sus: Array.from(checklist.crossed.sus),
+          obj: Array.from(checklist.crossed.obj),
+          loc: Array.from(checklist.crossed.loc)
+        },
+        possible: {
+          sus: Array.from(checklist.possible.sus),
+          obj: Array.from(checklist.possible.obj),
+          loc: Array.from(checklist.possible.loc)
+        }
+      };
+      try { localStorage.setItem(checklistKey(), JSON.stringify(data)); } catch {}
+    }
+    function loadChecklist(){
+      checklist = {
+        crossed: { sus: new Set(), obj: new Set(), loc: new Set() },
+        possible:{ sus: new Set(), obj: new Set(), loc: new Set() }
+      };
+      try {
+        const raw = localStorage.getItem(checklistKey());
+        if(!raw) return;
+        const data = JSON.parse(raw);
+        (data.crossed?.sus||[]).forEach(x => checklist.crossed.sus.add(x));
+        (data.crossed?.obj||[]).forEach(x => checklist.crossed.obj.add(x));
+        (data.crossed?.loc||[]).forEach(x => checklist.crossed.loc.add(x));
+        (data.possible?.sus||[]).forEach(x => checklist.possible.sus.add(x));
+        (data.possible?.obj||[]).forEach(x => checklist.possible.obj.add(x));
+        (data.possible?.loc||[]).forEach(x => checklist.possible.loc.add(x));
+      } catch {}
+    }
+    function setMode(mode){
+      checkMode = mode;
+      const btn = $("btnModePossible");
+      const modeLabel = $("modeLabel");
+      if(checkMode === "possible"){
+        btn.classList.add("on");
+        btn.textContent = "✅ Modo POSSÍVEL (toque para voltar)";
+        modeLabel.textContent = "POSSÍVEL";
+      } else {
+        btn.classList.remove("on");
+        btn.textContent = "Marcar como POSSÍVEL";
+        modeLabel.textContent = "RISCAR";
+      }
+    }
+    function applyMode(group, value){
+      const crossedSet = checklist.crossed[group];
+      const possibleSet = checklist.possible[group];
+
+      if(checkMode === "cross"){
+        if(crossedSet.has(value)) crossedSet.delete(value);
+        else {
+          crossedSet.add(value);
+          possibleSet.delete(value);
+        }
+      } else {
+        if(possibleSet.has(value)) possibleSet.delete(value);
+        else {
+          possibleSet.add(value);
+          crossedSet.delete(value);
+        }
+      }
+      saveChecklist();
+      renderChecklist();
+      updateProbabilities(); // <- recalcula
+    }
+    function clearChecklist(){
+      checklist = {
+        crossed: { sus: new Set(), obj: new Set(), loc: new Set() },
+        possible:{ sus: new Set(), obj: new Set(), loc: new Set() }
+      };
+      saveChecklist();
+      renderChecklist();
+      updateProbabilities();
+    }
+    function buildCheckItem(group, item){
+      const value = item.name;
+      const isCrossed = checklist.crossed[group].has(value);
+      const isPossible = checklist.possible[group].has(value);
+
+      const div = document.createElement("div");
+      div.className = "checkItem" + (isCrossed ? " crossed" : "") + (isPossible ? " possible" : "");
+      div.onclick = () => applyMode(group, value);
+
+      const possibleTag = isPossible ? `<span class="possibleTag">POSSÍVEL</span>` : "";
+      div.innerHTML = `
+        <div class="box"></div>
+        <div class="label">
+          <span class="emoji">${escapeHtml(item.emoji)}</span>
+          <span>${escapeHtml(item.name)}</span>
+        </div>
+        ${possibleTag}
+      `;
+      return div;
+    }
+    function renderChecklist(){
+      const susBox = $("checkSus");
+      const objBox = $("checkObj");
+      const locBox = $("checkLoc");
+      susBox.innerHTML = "";
+      objBox.innerHTML = "";
+      locBox.innerHTML = "";
+      SUSPECTS.forEach(it => susBox.appendChild(buildCheckItem("sus", it)));
+      OBJECTS.forEach(it => objBox.appendChild(buildCheckItem("obj", it)));
+      LOCATIONS.forEach(it => locBox.appendChild(buildCheckItem("loc", it)));
+    }
+    $("btnModePossible").onclick = () => setMode(checkMode === "possible" ? "cross" : "possible");
+    $("btnClearChecklist").onclick = () => { if(confirm("Limpar seu checklist (só o seu)?")) clearChecklist(); };
+
+    // ---------- Probabilities engine ----------
+    function allWorlds(){
+      const worlds = [];
+      for(const s of SUSPECTS) for(const o of OBJECTS) for(const l of LOCATIONS){
+        worlds.push({ suspect:s.name, object:o.name, location:l.name });
+      }
+      return worlds;
+    }
+
+    // Hard eliminations from my hand + checklist crossed
+    function isEliminatedByMe(world){
+      // my hand: any card I hold cannot be in solution
+      for(const c of lastHand){
+        if(c.t==="sus" && c.n===world.suspect) return true;
+        if(c.t==="obj" && c.n===world.object) return true;
+        if(c.t==="loc" && c.n===world.location) return true;
+      }
+      // checklist crossed
+      if(checklist.crossed.sus.has(world.suspect)) return true;
+      if(checklist.crossed.obj.has(world.object)) return true;
+      if(checklist.crossed.loc.has(world.location)) return true;
+      return false;
+    }
+
+    // Soft “possible” push (user hint only)
+    function possibleBoost(world){
+      // small multiplier if user marked as POSSÍVEL
+      // (isso é “ajudante”, não é regra do jogo)
+      let mul = 1.0;
+      if(checklist.possible.sus.has(world.suspect)) mul *= 1.25;
+      if(checklist.possible.obj.has(world.object)) mul *= 1.25;
+      if(checklist.possible.loc.has(world.location)) mul *= 1.25;
+      return mul;
+    }
+
+    // Map of clue templates by id
+    const clueById = Object.fromEntries(CLUE_TEMPLATES.map(c => [c.id, c]));
+
+    function weightFromClue(world, clueObj){
+      // clueObj stored in DB as {id, text, kind, at}
+      const tpl = clueById[clueObj.id];
+      if(!tpl) return 1;
+
+      if(tpl.kind === "hard"){
+        // hard clue must be TRUE; any world that violates becomes impossible
+        return tpl.ok(world) ? 1 : 0;
+      } else {
+        // soft clue: gives more weight if it matches, less otherwise
+        const t = tpl.test(world);
+        return t ? (tpl.weightTrue ?? 0.7) : (tpl.weightFalse ?? 0.3);
+      }
+    }
+
+    function computeMarginals(){
+      const worlds = allWorlds();
+      let weights = new Array(worlds.length).fill(1);
+
+      // apply eliminations
+      for(let i=0;i<worlds.length;i++){
+        if(isEliminatedByMe(worlds[i])) weights[i] = 0;
+      }
+
+      // apply public clues
+      for(const clue of (lastPublicClues || [])){
+        for(let i=0;i<worlds.length;i++){
+          if(weights[i] === 0) continue;
+          weights[i] *= weightFromClue(worlds[i], clue);
+        }
+      }
+
+      // apply "possible" boosts
+      for(let i=0;i<worlds.length;i++){
+        if(weights[i] === 0) continue;
+        weights[i] *= possibleBoost(worlds[i]);
+      }
+
+      const total = weights.reduce((a,b)=>a+b,0) || 1;
+
+      const ps = Object.fromEntries(SUSPECTS.map(x=>[x.name,0]));
+      const po = Object.fromEntries(OBJECTS.map(x=>[x.name,0]));
+      const pl = Object.fromEntries(LOCATIONS.map(x=>[x.name,0]));
+
+      for(let i=0;i<worlds.length;i++){
+        const p = weights[i] / total;
+        ps[worlds[i].suspect] += p;
+        po[worlds[i].object]  += p;
+        pl[worlds[i].location]+= p;
+      }
+      return { ps, po, pl };
+    }
+
+    function renderProbList(containerId, items, probs, labelFn){
+      const box = $(containerId);
+      box.innerHTML = "";
+      const sorted = [...items].map(it => ({
+        name: it.name,
+        emoji: it.emoji,
+        p: probs[it.name] || 0
+      })).sort((a,b)=>b.p-a.p);
+
+      for(const it of sorted){
+        const pct = Math.round(it.p * 1000)/10; // 1 decimal
+        const row = document.createElement("div");
+        row.className = "probItem";
+        row.innerHTML = `
+          <div class="emoji">${escapeHtml(it.emoji)}</div>
+          <div style="width:140px">${escapeHtml(it.name)}</div>
+          <div class="barWrap">
+            <div class="barBg"><div class="barFill" style="width:${pct}%;"></div></div>
+          </div>
+          <div class="pct">${pct.toFixed(1)}%</div>
+        `;
+        box.appendChild(row);
+      }
+    }
+
+    function updateProbabilities(){
+      // if not in game yet, clear
+      if(!room){
+        $("probSus").innerHTML = "";
+        $("probObj").innerHTML = "";
+        $("probLoc").innerHTML = "";
+        return;
+      }
+      const { ps, po, pl } = computeMarginals();
+      renderProbList("probSus", SUSPECTS, ps, labelSus);
+      renderProbList("probObj", OBJECTS,  po, labelObj);
+      renderProbList("probLoc", LOCATIONS,pl, labelLoc);
+    }
+
+    // UI init select options (com emojis)
+    function fillSelect(sel, arr, labelFn){
+      sel.innerHTML = arr.map(x => `<option value="${escapeHtml(x.name)}">${escapeHtml(labelFn(x.name))}</option>`).join("");
+    }
+    fillSelect($("guessSus"), SUSPECTS, labelSus);
+    fillSelect($("guessObj"), OBJECTS, labelObj);
+    fillSelect($("guessLoc"), LOCATIONS, labelLoc);
+    fillSelect($("accSus"), SUSPECTS, labelSus);
+    fillSelect($("accObj"), OBJECTS, labelObj);
+    fillSelect($("accLoc"), LOCATIONS, labelLoc);
 
     // ---------- auth ----------
     $("btnAnon").onclick = async () => {
@@ -213,7 +631,6 @@
         await signInAnonymously(auth);
       } catch(e){ showErr(e); }
     };
-
     onAuthStateChanged(auth, (user) => {
       if(!user) return;
       uid = user.uid;
@@ -223,15 +640,15 @@
       $("playerName").disabled = true;
     });
 
-    // ---------- Firestore data model (simples) ----------
+    // ---------- Firestore model ----------
     // rooms/{ROOM}
     //   hostId, phase, createdAt
     //   players: { [uid]: { name, alive } }
-    //   hands: { [uid]: ["Suspeito: X", ...] }
-    //   clueDeck: [{text}], clueIndex
-    //   publicClues: [{text, at}]
+    //   hands: { [uid]: [{t:"sus"|"obj"|"loc", n:"Nome"}] }
+    //   clueDeck: [{id, kind, text}], clueIndex
+    //   publicClues: [{id, kind, text, at}]
     //   log: [{text, at}]
-    //   mystery: {suspect, object, location}  (⚠️ simples/sem anti-trapaça)
+    //   mystery: {suspect, object, location}  (⚠️ simples)
 
     function roomDocRef(code){ return doc(fs, "rooms", code); }
 
@@ -244,7 +661,6 @@
         await joinOrCreate(code, true);
       } catch(e){ showErr(e); }
     };
-
     $("btnJoin").onclick = async () => {
       try{
         $("errBox").textContent = "";
@@ -273,10 +689,12 @@
         await pushLog(`Sala criada por ${meName}. Código: ${room}`);
       }
 
-      // add/update me in players
-      await updateDoc(rref, {
-        [`players.${uid}`]: { name: meName, alive: true }
-      });
+      await updateDoc(rref, { [`players.${uid}`]: { name: meName, alive: true } });
+
+      // checklist
+      loadChecklist();
+      setMode("cross");
+      renderChecklist();
 
       // subscribe
       if(unsubRoom) unsubRoom();
@@ -291,7 +709,6 @@
       unsubRoom = onSnapshot(rref, (docSnap) => {
         const data = docSnap.data();
         if(!data) return;
-        lastRoomData = data;
 
         isHost = data.hostId === uid;
         $("hostPill").style.display = isHost ? "inline-block" : "none";
@@ -301,14 +718,22 @@
         $("btnReset").disabled = !isHost;
 
         renderPlayers(data.players || {});
-        renderHand((data.hands && data.hands[uid]) ? data.hands[uid] : []);
-        renderPublicClues(data.publicClues || []);
+
+        lastHand = (data.hands && data.hands[uid]) ? data.hands[uid] : [];
+        renderHand(lastHand);
+
+        lastPublicClues = data.publicClues || [];
+        renderPublicClues(lastPublicClues);
+
         renderLog(data.log || []);
 
         const meAlive = data.players?.[uid]?.alive !== false;
         $("btnDraw").disabled = data.phase !== "playing" || !meAlive;
         $("btnGuess").disabled = data.phase !== "playing" || !meAlive;
         $("btnAccuse").disabled = data.phase !== "playing" || !meAlive;
+
+        // update probabilities whenever snapshot updates
+        updateProbabilities();
       });
     }
 
@@ -330,7 +755,14 @@
         $("handBox").innerHTML = `<div class="muted">Ainda sem cartas (o host precisa iniciar).</div>`;
         return;
       }
-      $("handBox").innerHTML = hand.map(c => `<span class="pill">${escapeHtml(c)}</span>`).join(" ");
+      const pills = hand.map(c => {
+        const label =
+          c.t === "sus" ? labelSus(c.n) :
+          c.t === "obj" ? labelObj(c.n) :
+          labelLoc(c.n);
+        return `<span class="pill">${escapeHtml(label)}</span>`;
+      });
+      $("handBox").innerHTML = pills.join(" ");
     }
 
     function renderPublicClues(clues){
@@ -340,7 +772,8 @@
       }
       $("publicClues").innerHTML = clues.map(c => {
         const t = c.at?.seconds ? new Date(c.at.seconds*1000) : new Date(c.at || Date.now());
-        return `<div class="pill">🧩 ${escapeHtml(c.text)} <span class="tiny muted">(${t.toLocaleTimeString()})</span></div>`;
+        const tag = c.kind === "hard" ? "✅ CERTA" : "🌫️ VAGA";
+        return `<div class="pill">${tag} • ${escapeHtml(c.text)} <span class="tiny muted">(${t.toLocaleTimeString()})</span></div>`;
       }).join("");
     }
 
@@ -360,9 +793,7 @@
     async function pushLog(text){
       if(!room) return;
       const rref = roomDocRef(room);
-      await updateDoc(rref, {
-        log: arrayUnion({ text, at: new Date() })
-      });
+      await updateDoc(rref, { log: arrayUnion({ text, at: new Date() }) });
     }
 
     // ---------- actions ----------
@@ -374,39 +805,48 @@
         const data = snap.data();
         if(!data || data.phase !== "lobby") return;
 
-        const players = data.players ? Object.keys(data.players) : [];
-        if(players.length < 2) return alert("Entre com pelo menos 2 jogadores pra ficar legal 🙂");
+        const playerIds = data.players ? Object.keys(data.players) : [];
+        if(playerIds.length < 2) return alert("Entre com pelo menos 2 jogadores pra ficar legal 🙂");
 
         const mystery = {
-          suspect: choice(SUSPECTS),
-          object: choice(OBJECTS),
-          location: choice(LOCATIONS)
+          suspect: choice(SUSPECTS).name,
+          object: choice(OBJECTS).name,
+          location: choice(LOCATIONS).name
         };
 
+        // Build clue deck:
+        // - include all soft
+        // - include only hard clues that are true for this mystery
+        const hardOk = CLUE_TEMPLATES.filter(c => c.kind==="hard" && c.ok(mystery));
+        const softAll = CLUE_TEMPLATES.filter(c => c.kind==="soft");
+        const clueDeck = shuffle([...hardOk, ...softAll]).slice(0, 24).map(c => ({
+          id: c.id,
+          kind: c.kind,
+          text: c.text
+        }));
+
+        // Build deck as structured cards
         const allCards = [
-          ...SUSPECTS.map(x=>`Suspeito: ${x}`),
-          ...OBJECTS.map(x=>`Objeto: ${x}`),
-          ...LOCATIONS.map(x=>`Lugar: ${x}`)
+          ...SUSPECTS.map(x => ({ t:"sus", n:x.name })),
+          ...OBJECTS.map(x  => ({ t:"obj", n:x.name })),
+          ...LOCATIONS.map(x=> ({ t:"loc", n:x.name }))
         ];
+        const isMystery = (c) =>
+          (c.t === "sus" && c.n === mystery.suspect) ||
+          (c.t === "obj" && c.n === mystery.object) ||
+          (c.t === "loc" && c.n === mystery.location);
 
-        const mysteryCards = new Set([
-          `Suspeito: ${mystery.suspect}`,
-          `Objeto: ${mystery.object}`,
-          `Lugar: ${mystery.location}`
-        ]);
+        const deck = shuffle(allCards.filter(c => !isMystery(c)));
 
-        const deck = shuffle(allCards.filter(c => !mysteryCards.has(c)));
-
+        // deal
         const hands = {};
-        players.forEach(pid => hands[pid] = []);
+        playerIds.forEach(pid => hands[pid] = []);
         let idx=0;
         for(const card of deck){
-          const pid = players[idx % players.length];
+          const pid = playerIds[idx % playerIds.length];
           hands[pid].push(card);
           idx++;
         }
-
-        const clueDeck = shuffle(CLUES);
 
         await updateDoc(rref, {
           phase: "playing",
@@ -437,9 +877,9 @@
         const clue = deck[idx];
         await updateDoc(rref, {
           clueIndex: idx + 1,
-          publicClues: arrayUnion({ text: clue.text, at: new Date() })
+          publicClues: arrayUnion({ ...clue, at: new Date() })
         });
-        await pushLog(`🧩 ${meName} puxou uma pista: ${clue.text}`);
+        await pushLog(`🧩 ${meName} puxou uma pista (${clue.kind === "hard" ? "certa" : "vaga"}): ${clue.text}`);
       } catch(e){ showErr(e); }
     };
 
@@ -449,7 +889,7 @@
         const s = $("guessSus").value;
         const o = $("guessObj").value;
         const l = $("guessLoc").value;
-        await pushLog(`❓ Palpite de ${meName}: ${s} + ${o} + ${l}`);
+        await pushLog(`❓ Palpite de ${meName}: ${labelSus(s)} + ${labelObj(o)} + ${labelLoc(l)}`);
       } catch(e){ showErr(e); }
     };
 
@@ -471,11 +911,11 @@
           data.mystery?.location === l;
 
         if(ok){
-          await pushLog(`🏆 ${meName} ACUSOU e ACERTOU! Era ${s} com ${o} em ${l}.`);
+          await pushLog(`🏆 ${meName} ACUSOU e ACERTOU! Era ${labelSus(s)} com ${labelObj(o)} em ${labelLoc(l)}.`);
           await updateDoc(rref, { phase:"finished" });
-          alert(`Você venceu! Era ${s} com ${o} em ${l}.`);
+          alert(`Você venceu! Era ${labelSus(s)} com ${labelObj(o)} em ${labelLoc(l)}.`);
         } else {
-          await pushLog(`💥 ${meName} acusou e ERROU: ${s} + ${o} + ${l}. (Ficou fora)`);
+          await pushLog(`💥 ${meName} acusou e ERROU: ${labelSus(s)} + ${labelObj(o)} + ${labelLoc(l)}. (Ficou fora)`);
           await updateDoc(rref, { [`players.${uid}.alive`]: false });
           alert("Errou! Você ficou fora da disputa (mas pode continuar assistindo).");
         }
